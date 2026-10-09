@@ -5,39 +5,26 @@ import { expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 export async function beginTouch(page: Page, at: number) {
-  await page.evaluate(() => {
-    const debug = window as Window & { touchTestEvents?: unknown[] };
-    if (debug.touchTestEvents) return;
-    const events = debug.touchTestEvents = [] as unknown[];
-    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'touchstart', 'touchend', 'touchcancel', 'scroll']) {
-      document.addEventListener(type, event => {
-        const tile = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-at]') : null;
-        events.push({ type, at: tile?.dataset.at, time: Math.round(event.timeStamp),
-          pointer: event instanceof PointerEvent ? [event.pointerId, event.pointerType, event.isPrimary, event.clientX, event.clientY] : undefined,
-          touches: event instanceof TouchEvent ? event.touches.length : undefined,
-          scroll: [scrollX, scrollY, document.getElementById('board-scroll')?.scrollLeft],
-          status: document.getElementById('touch-status')?.textContent,
-        });
-        if (events.length > 60) events.shift();
-      }, { capture: true, passive: true });
-    }
-  });
   const cell = page.locator('[data-at="' + at + '"]');
-  await cell.evaluate(element => element.scrollIntoView({ block: 'center', inline: 'center' }));
-  // A preceding drag can leave native scrolling in flight and legitimately cancel
-  // the next hold. Start each independent gesture only once scrolling has settled.
-  await page.evaluate(async () => {
+  await cell.evaluate(async element => {
     await document.fonts.ready;
-    await new Promise<void>(resolve => {
+    const settled = () => new Promise<void>(resolve => {
       let timer = 0;
       const finish = () => { document.removeEventListener('scroll', settle, true); resolve(); };
       const settle = () => { clearTimeout(timer); timer = window.setTimeout(finish, 150); };
       document.addEventListener('scroll', settle, true);
       requestAnimationFrame(() => requestAnimationFrame(settle));
     });
+    // Finish the previous drag's momentum before repositioning the target;
+    // otherwise the browser can scroll it out of view again before touchStart.
+    await settled();
+    element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+    await settled();
   });
   const box = (await cell.boundingBox())!;
   const x = box.x + box.width / 2, y = box.y + box.height / 2;
+  expect(await page.evaluate(({ x, y }) =>
+    document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-at]')?.dataset.at, { x, y })).toBe(String(at));
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ id: 1, x, y }] });
   const finish = async (type: 'touchEnd' | 'touchCancel') => {
@@ -46,14 +33,7 @@ export async function beginTouch(page: Page, at: number) {
   };
   return {
     cell, cdp, x, y,
-    ready: async () => {
-      try { await expect(cell).toHaveClass(/touch-hold-ready/); }
-      catch (error) {
-        console.log('Touch events before failed hold:', JSON.stringify(await page.evaluate(() =>
-          (window as Window & { touchTestEvents?: unknown[] }).touchTestEvents)));
-        throw error;
-      }
-    },
+    ready: () => expect(cell).toHaveClass(/touch-hold-ready/),
     move: (dx: number, dy: number) => cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ id: 1, x: x + dx, y: y + dy }] }),
     end: () => finish('touchEnd'),
     cancel: () => finish('touchCancel'),
