@@ -7,7 +7,18 @@ import type { Page } from '@playwright/test';
 export async function beginTouch(page: Page, at: number) {
   const cell = page.locator('[data-at="' + at + '"]');
   await cell.evaluate(element => element.scrollIntoView({ block: 'center', inline: 'center' }));
-  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  // A preceding drag can leave native scrolling in flight and legitimately cancel
+  // the next hold. Start each independent gesture only once scrolling has settled.
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise<void>(resolve => {
+      let timer = 0;
+      const finish = () => { document.removeEventListener('scroll', settle, true); resolve(); };
+      const settle = () => { clearTimeout(timer); timer = window.setTimeout(finish, 150); };
+      document.addEventListener('scroll', settle, true);
+      requestAnimationFrame(() => requestAnimationFrame(settle));
+    });
+  });
   const box = (await cell.boundingBox())!;
   const x = box.x + box.width / 2, y = box.y + box.height / 2;
   const cdp = await page.context().newCDPSession(page);
