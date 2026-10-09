@@ -1,0 +1,66 @@
+{
+  "name": "complexweeper-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "GPL-3.0-only",
+  "author": {
+    "name": "yizhaozhang11",
+    "url": "https://github.com/yizhaozhang11"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yizhaozhang11/complexweeper.git"
+  },
+  "homepage": "https://yizhaozhang11.github.io/complexweeper/",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build --base=./",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test tests/*.test.ts",
+    "test:browser": "playwright test",
+    "test:pages": "playwright test --config playwright.pages.config.ts",
+    "build:guide": "node tools/build-guide.mjs",
+    "build:notes": "node tools/build-notes.mjs",
+    "predev": "node tools/build-guide.mjs && node tools/build-notes.mjs && node tools/package-source.mjs",
+    "prebuild": "node tools/build-guide.mjs && node tools/build-notes.mjs && node tools/package-source.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^26.6.4",
+    "marked": "18.1.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.3"
+  },
+  "files": [
+    ".github/workflows/pages.yml",
+    ".gitignore",
+    ".nvmrc",
+    "src",
+    "tests",
+    "tools",
+    "public/fonts",
+    "public/legal",
+    "public/favicon.svg",
+    "public/brand.svg",
+    "public/guide.html",
+    "public/guide.css",
+    "public/changes.html",
+    "index.html",
+    "SPEC.md",
+    "README.md",
+    "GUIDE.md",
+    "CHANGELOG.md",
+    "DEPLOYMENT.md",
+    "COPYRIGHT",
+    "LICENSE",
+    "tsconfig.json",
+    "vite.config.ts",
+    "playwright.config.ts",
+    "playwright.pages.config.ts",
+    "package-lock.json"
+  ]
+}

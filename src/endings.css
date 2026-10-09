@@ -1,0 +1,24 @@
+/* SPDX-FileCopyrightText: 2026 yizhaozhang11
+ * SPDX-License-Identifier: GPL-3.0-only */
+
+#ending-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+.outcome{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);width:220px;max-width:calc(100% - 32px);padding:20px 24px;text-align:center;pointer-events:none;background:rgba(255,255,255,.96);border:1px solid #b4cfc6;box-shadow:0 12px 32px #395a4726;color:#335b4e}
+.outcome-icon{display:grid;place-items:center;width:42px;height:42px;margin:0 auto 12px;color:#fff;background:linear-gradient(125deg,#67b995,#63a1c8);box-shadow:0 0 0 5px #88b7a012}
+.outcome-icon svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+#outcome-title{display:block;font-size:23px;font-weight:650;line-height:1.35;letter-spacing:1px}
+#outcome-detail{display:block;font-size:11px;line-height:1.6;color:#819089;font-variant-numeric:tabular-nums;letter-spacing:.5px;margin-top:8px}
+.outcome[data-result=loss]{width:208px;color:#855442;border-color:#dbb6a8;box-shadow:0 12px 30px #86644d24}
+.outcome[data-result=loss] .outcome-icon{background:linear-gradient(125deg,#d7a26d,#c78474);box-shadow:0 0 0 5px #d3a78212}
+.outcome[data-result=loss] #outcome-detail{color:#9b8377}
+.outcome[data-result=win] .failure-icon,.outcome[data-result=loss] .success-icon{display:none}
+.finish-win .outcome{animation:success-emblem 3s both}
+.finish-loss .outcome{animation:failure-emblem 2.1s both}
+.finish-win{animation:board-complete 2.8s ease-out both}
+.finish-loss{animation:board-impact 1s ease-out both}
+.finish-loss .tile.impact{background:#f2d9cf!important;border-color:#b7765f;color:#6e3d2c;outline-color:#b7765f;animation:impact-jolt 420ms ease-out}
+@keyframes success-emblem{0%{opacity:0;transform:translate(-50%,-42%) scale(.85)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}22%,82%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-55%) scale(.98)}}
+@keyframes failure-emblem{0%{opacity:0;transform:translate(-50%,-42%)}18%,77%{opacity:1;transform:translate(-50%,-50%)}100%{opacity:0;transform:translate(-50%,-54%)}}
+@keyframes board-complete{0%,100%{box-shadow:0 0 0 0 #71b4a000}18%,65%{box-shadow:0 0 0 2px #71b4a033,0 0 27px #8db2c01f}}
+@keyframes board-impact{0%,100%{box-shadow:0 0 0 0 #b8806800}25%{box-shadow:0 0 0 2px #b880684d,0 0 22px #dbaa8024}}
+@keyframes impact-jolt{0%,100%{transform:translateX(0)}20%{transform:translateX(-3px)}40%{transform:translateX(3px)}60%{transform:translateX(-2px)}80%{transform:translateX(1px)}}
+@media(prefers-reduced-motion:reduce){.finish-win,.finish-loss,.outcome,.finish-loss .tile.impact{animation:none!important}#ending-canvas{display:none}}

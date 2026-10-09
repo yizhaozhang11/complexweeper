@@ -1,0 +1,45 @@
+/* SPDX-FileCopyrightText: 2026 yizhaozhang11
+ * SPDX-License-Identifier: GPL-3.0-only */
+
+.touch-tools { display:none; }
+.touch .desktop-controls { display:none; }
+.touch .touch-tools {
+  display:flex; flex-direction:column; gap:6px;
+  position:fixed; z-index:8; left:50%;
+  bottom:max(12px,env(safe-area-inset-bottom)); transform:translateX(-50%);
+  width:min(460px,calc(100% - 24px)); padding:8px;
+  border:1px solid #aaa; background:#f7f7f7; box-shadow:0 4px 25px #0002;
+}
+.touch-row { display:grid; gap:6px; }
+.touch-selection { grid-template-columns:minmax(0,1fr) 68px 58px; }
+.touch-operations { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.touch-tools button,.touch-tools select {
+  width:100%; min-height:44px; margin:0; padding:7px 5px;
+  border:1px solid #bbb; border-radius:0; background:#fafafa;
+  color:#444; font-size:13px; line-height:1.35;
+}
+.touch-group-picker { min-width:0; }
+.touch-tools select {
+  height:44px; padding:6px 24px 6px 8px;
+  border-left:3px solid var(--selected-group,#444);
+  font-size:16px;
+}
+.touch-tools button[aria-pressed=true] { background:#333; border-color:#333; color:#fff; }
+.touch-context { display:flex; gap:8px; align-items:center; min-height:24px; }
+#touch-status { flex:1; min-width:0; color:#656565; font-size:12px; line-height:1.6; }
+.touch-tools #touch-cancel {
+  flex:none; width:auto; min-width:44px; padding-inline:6px;
+  border:0; background:transparent; font-size:12px;
+  text-decoration:underline; text-underline-offset:4px;
+}
+.touch body { padding-bottom:calc(var(--touch-toolbar-height,130px) + 24px + env(safe-area-inset-bottom)); }
+.touch .toast { bottom:calc(var(--touch-toolbar-height,130px) + 28px + env(safe-area-inset-bottom)); }
+.touch .preferences { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 20px; }
+.touch .preferences label { gap:12px; }
+.touch .preferences .outline { grid-column:1/-1; }
+.touch .tile { font-size:17px; scroll-margin-bottom:calc(var(--touch-toolbar-height,130px) + 24px); }
+.touch #board { --size:31px; }
+.touch .tile.inspected { outline:2px solid #3f6c93; outline-offset:1px; z-index:1; }
+.touch .tile.touch-hold { outline:2px dotted #777; outline-offset:-3px; }
+.touch .tile.touch-hold-ready { outline:3px solid #3f6c93; outline-offset:-3px; }
+.touch .tile.touch-merge-preview { outline:2px solid var(--group); outline-offset:-3px; z-index:1; }

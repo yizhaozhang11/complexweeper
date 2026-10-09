@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.cache/
+test-results/
+playwright-report/
+*.log
+public/source.tgz
+public/legal/COPYRIGHT.txt
+public/guide.html
+public/changes.html

@@ -1,0 +1,24 @@
+Complexweeper Web
+
+Copyright (C) 2026 yizhaozhang11
+作者主页：https://github.com/yizhaozhang11
+
+本项目代码由 yizhaozhang11 在 OpenAI Codex 辅助下编写。
+上述版权声明适用于本项目中由该作者持有版权的代码及文档。
+项目自有代码及文档按 GNU General Public License version 3 only
+（SPDX: GPL-3.0-only）发布，完整条款见 LICENSE。
+
+基础玩法来源
+复数扫雷的基础创意来自青月晓（Yueqing-Chen）的 Complexweeper：
+https://github.com/Yueqing-Chen/complexweeper-A-minesweeper-game
+本项目修改并扩展玩法，重新实现网页程序。玩法致谢及本版本的
+扩展内容见 README.md，具体规则见 SPEC.md。
+
+第三方素材
+Latin Modern Math 字体及由其字形生成的轮廓采用 GUST Font License，
+包括 public/fonts/latinmodern-math.otf、src/math-outlines.ts、
+public/brand.svg 和 public/favicon.svg 中的字形轮廓。
+作者、原始版权声明、来源与许可见 public/fonts/NOTICE.md、
+public/fonts/README-upstream.txt 和 public/fonts/GUST-FONT-LICENSE.txt。
+
+LICENSE 中 Free Software Foundation 的版权声明属于许可证文本本身。
