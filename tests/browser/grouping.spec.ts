@@ -13,7 +13,7 @@ const setGrouping = (page: Page, enabled: boolean) => page.locator('#grouping').
 }, enabled);
 
 test('grouping defaults on; switching off gives the board more space and preserves existing marks', async ({ page, isMobile }) => {
-  const puzzle = createPuzzle({ columns: 30, rows: 16, mines: 99 });
+  const puzzle = createPuzzle({ columns: 32, rows: 16, mines: 90 });
   puzzle.tiles[0].mark = { basis: 0, rotation: 0 };
   puzzle.tiles[1].mark = { basis: 1, rotation: 3 };
   await page.goto('/#cw=' + pack(puzzle));

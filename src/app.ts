@@ -12,7 +12,7 @@ import { createTouchControls } from './touch.ts';
 import type { TouchControls } from './touch.ts';
 
 const presets: Shape[] = [
-  { columns: 9, rows: 9, mines: 10 }, { columns: 16, rows: 16, mines: 40 }, { columns: 30, rows: 16, mines: 99 },
+  { columns: 9, rows: 9, mines: 10 }, { columns: 16, rows: 16, mines: 40 }, { columns: 32, rows: 16, mines: 90 },
 ];
 let puzzle = createPuzzle(presets[1]);
 let selected = 0;
@@ -46,7 +46,7 @@ root.innerHTML = `
     </header>
     <main>
       <section class="play-space" aria-label="复扫雷">
-        <div class="game-heading"><div><p class="eyebrow">复扫雷</p><div class="preset-line"><label class="sr-only" for="preset">棋盘</label><select id="preset"><option value="0">轻量 · 9 × 9</option><option value="1" selected>标准 · 16 × 16</option><option value="2">广域 · 30 × 16</option><option value="custom">自定义棋盘</option></select><span id="state" class="state">准备就绪</span></div></div><button id="restart" class="primary">新对局</button></div>
+        <div class="game-heading"><div><p class="eyebrow">复扫雷</p><div class="preset-line"><label class="sr-only" for="preset">棋盘</label><select id="preset"><option value="0">轻量 · 9 × 9</option><option value="1" selected>标准 · 16 × 16</option><option value="2">广域 · 32 × 16</option><option value="custom">自定义棋盘</option></select><span id="state" class="state">准备就绪</span></div></div><button id="restart" class="primary">新对局</button></div>
         <div class="metrics"><div><span>时间</span><strong id="time">00:00</strong></div><div><span>标记</span><strong><b id="marked">0</b><span id="quota"> / 40</span></strong></div><button id="quick-undo" class="text-button" aria-label="撤销标记" title="撤销标记（Ctrl / ⌘ Z）" hidden>撤销</button><button id="pause" class="text-button" hidden>暂停</button><div id="review" class="segmented" hidden><button id="review-marks" aria-pressed="true">标记</button><button id="review-field" aria-pressed="false">实际分布</button></div></div>
         <div id="board-frame" class="board-frame">
           <div id="board-scroll" class="board-scroll"><div id="board" role="grid" aria-label="扫雷棋盘"></div></div>
