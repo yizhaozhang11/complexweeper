@@ -37,6 +37,9 @@
 .touch .preferences { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 20px; }
 .touch .preferences label { gap:12px; }
 .touch .preferences .outline { grid-column:1/-1; }
+.touch.grouping-disabled .preferences { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.touch.grouping-disabled .grouping-preference { grid-column:1/-1; }
+.touch #quick-undo { min-width:44px; min-height:44px; }
 .touch-marking-preference { grid-column:1/-1; }
 .touch-marking-preference select { min-width:144px; max-width:65%; min-height:44px; padding:7px 10px; border:1px solid #bbb; border-radius:0; background:#fafafa; font-size:16px; }
 .touch-marking-preference p { margin:7px 0 0; color:#777; font-size:12px; line-height:1.6; }

@@ -34,6 +34,7 @@ function savePreference(key: string, value: boolean): void {
 }
 const preferences = {
   hints: readPreference('hints'), expansion: readPreference('expansion'),
+  grouping: readPreference('grouping'),
   markMenu: readPreference('mark-menu'), menuTapCycle: readPreference('menu-tap-cycle'),
 };
 const root = document.querySelector<HTMLDivElement>('#app')!;
@@ -46,7 +47,7 @@ root.innerHTML = `
     <main>
       <section class="play-space" aria-label="复扫雷">
         <div class="game-heading"><div><p class="eyebrow">复扫雷</p><div class="preset-line"><label class="sr-only" for="preset">棋盘</label><select id="preset"><option value="0">轻量 · 9 × 9</option><option value="1" selected>标准 · 16 × 16</option><option value="2">广域 · 30 × 16</option><option value="custom">自定义棋盘</option></select><span id="state" class="state">准备就绪</span></div></div><button id="restart" class="primary">新对局</button></div>
-        <div class="metrics"><div><span>时间</span><strong id="time">00:00</strong></div><div><span>标记</span><strong><b id="marked">0</b><span id="quota"> / 40</span></strong></div><button id="pause" class="text-button" hidden>暂停</button><div id="review" class="segmented" hidden><button id="review-marks" aria-pressed="true">标记</button><button id="review-field" aria-pressed="false">实际分布</button></div></div>
+        <div class="metrics"><div><span>时间</span><strong id="time">00:00</strong></div><div><span>标记</span><strong><b id="marked">0</b><span id="quota"> / 40</span></strong></div><button id="quick-undo" class="text-button" aria-label="撤销标记" title="撤销标记（Ctrl / ⌘ Z）" hidden>撤销</button><button id="pause" class="text-button" hidden>暂停</button><div id="review" class="segmented" hidden><button id="review-marks" aria-pressed="true">标记</button><button id="review-field" aria-pressed="false">实际分布</button></div></div>
         <div id="board-frame" class="board-frame">
           <div id="board-scroll" class="board-scroll"><div id="board" role="grid" aria-label="扫雷棋盘"></div></div>
           <div id="pause-cover" class="pause-cover" hidden><p>已暂停</p><button id="resume" class="primary">继续对局</button></div>
@@ -58,13 +59,17 @@ root.innerHTML = `
         <p id="message" class="message" aria-live="polite">点击任意格子开始。首次翻开的周围没有雷。</p>
       </section>
       <aside class="sidebar" aria-label="标记工具">
-        <section class="desktop-controls"><div class="side-heading"><h2>当前组</h2><button id="fresh-group" class="text-button" title="准备第一个未使用的组：数值、a、b…">新组</button></div>
+        <section id="group-tools" class="desktop-controls"><div class="side-heading"><h2>当前组</h2><button id="fresh-group" class="text-button" title="准备第一个未使用的组：数值、a、b…">新组</button></div>
           <div id="group-card" class="group-card"><span id="group-symbol"></span><span id="group-caption">待用新组</span></div>
           <p id="merge-prompt" class="merge-prompt" hidden>中键点击另一组，声明两组相等。<br>按 Esc 取消。</p>
           <div class="mouse-keys"><p><span>左键</span><strong>翻开 / 展开</strong></p><p><span>右键</span><strong>标记 / 轮换</strong></p><p><span>中键</span><strong>选组 / 新组</strong></p></div>
           <div class="group-actions"><button id="rotate"><kbd>I</kbd><span>整组 <span class="math">× i</span></span></button><button id="conjugate"><kbd>C</kbd><span>系数共轭</span></button><button id="merge" aria-pressed="false"><kbd>M</kbd><span>合并组</span></button><button id="constant"><kbd>0</kbd><span>数值组</span></button><button id="undo"><kbd>⌘ / Ctrl Z</kbd><span>撤销标记</span></button></div>
         </section>
         <section class="preferences">
+          <div class="grouping-preference">
+            <label><span>启用分组</span><input id="grouping" type="checkbox" role="switch" aria-describedby="grouping-note"></label>
+            <p id="grouping-note">关闭后只新建数值标记，并收起分组工具；已有标记保留。</p>
+          </div>
           <label><span>标记提示</span><input id="hints" type="checkbox" role="switch"></label>
           <label><span id="expansion-label">点击展开</span><input id="expansion" type="checkbox" role="switch"></label>
           <div id="touch-marking-preference" class="touch-marking-preference" hidden>
@@ -89,7 +94,7 @@ root.innerHTML = `
   </div>
   <dialog id="custom-dialog"><form id="custom-form"><div class="dialog-title"><h2>自定义棋盘</h2><button type="button" data-close aria-label="关闭">×</button></div><div class="fields"><label>列数<input name="columns" type="number" min="3" max="40" required></label><label>行数<input name="rows" type="number" min="3" max="30" required></label><label class="wide">雷数<input name="mines" type="number" min="1" required></label></div><p id="custom-error" class="form-error" role="alert"></p><button class="primary" type="submit">开始新对局</button></form></dialog>
   <dialog id="share-dialog"><div class="dialog-title"><h2>分享棋局</h2><button data-close aria-label="关闭">×</button></div><p>对方打开后可从这个局面继续，字母分组也会保留。</p><label class="sr-only" for="share-url">棋局链接</label><textarea id="share-url" readonly spellcheck="false"></textarea><button id="copy-share" class="primary">复制链接</button><p class="dialog-note">链接包含完整棋局，可用于复盘。</p></dialog>
-  <dialog id="help-dialog" class="reading-dialog"><div class="dialog-title"><h2>玩法与推理</h2><button data-close aria-label="关闭">×</button></div><p>四种雷是 <span class="math">1、i、−1、−i</span>。每个数字表示周围八格雷的复数和的模长。</p><p><b>空白</b>表示周围没有雷；<b>0</b> 表示有雷且相互抵消。<b>1</b> 表示恰有一颗雷，<b>1*</b> 表示多颗雷抵消后模长为 1。</p><p>用 <span class="math">𝑎、−𝑎、i𝑎、−i𝑎</span> 记录雷之间的相对关系。不同字母可以取相同数值。旋转或共轭只变换当前组的系数；合并表示两个组的基元相等。</p><p>标记化简后至多剩一个非零组项、模长符合线索，并排除额外抵消对后，线索才显示灰色斜线。点击展开以你的标记正确为前提。</p><p><b>完成条件：</b>翻开全部安全格，并使所有线索被当前标记满足；不要求还原雷的绝对相位。</p><p>桌面：左键翻开或展开，右键标记；中键点击标记选中该组，点击其他格子或页面空白准备新组。按 M 后，中键点击另一组完成合并，Esc 取消。</p><p>手机：未标格轻点翻开；已标格轻点时，异组先改归当前组并保留系数，同组才轮换；滑动菜单可关闭“点按轮换标记”，关闭后同组轻点不变。使用“滑动菜单”时，长按未翻开格打开菜单，划向菜单右、上、左、下的选项，选当前组的 1、i、−1、−i 系数；移到菜单中心松手清除，移出外圈松手取消。初始手指在中心 ∅ 内可原地松手清除；在其他位置时先移动选择，直接松手取消。松手前只预览。棋盘下方“标记方式”可切换为“直接标记”：长按未标格后松手落标，长按已有标记则清除。已开格轻点选中线索、长按展开。菜单出现前滑动仍用于滚动。底栏可选组、新组、整组变换；合并先点棋盘目标组，再点确认。</p><p>键盘：方向键移动，Enter/空格执行左键操作；I 旋转、C 共轭、M 后中键选组进行合并、0 数值组、Esc 取消，Ctrl/⌘ Z 撤销标记。</p></dialog>
+  <dialog id="help-dialog" class="reading-dialog"><div class="dialog-title"><h2>玩法与推理</h2><button data-close aria-label="关闭">×</button></div><p>四种雷是 <span class="math">1、i、−1、−i</span>。每个数字表示周围八格雷的复数和的模长。</p><p><b>空白</b>表示周围没有雷；<b>0</b> 表示有雷且相互抵消。<b>1</b> 表示恰有一颗雷，<b>1*</b> 表示多颗雷抵消后模长为 1。</p><p>用 <span class="math">𝑎、−𝑎、i𝑎、−i𝑎</span> 记录雷之间的相对关系。不同字母可以取相同数值。旋转或共轭只变换当前组的系数；合并表示两个组的基元相等。</p><p>标记化简后至多剩一个非零组项、模长符合线索，并排除额外抵消对后，线索才显示灰色斜线。点击展开以你的标记正确为前提。</p><p><b>完成条件：</b>翻开全部安全格，并使所有线索被当前标记满足；不要求还原雷的绝对相位。</p><p>桌面：左键翻开或展开，右键标记；中键点击标记选中该组，点击其他格子或页面空白准备新组。按 M 后，中键点击另一组完成合并，Esc 取消。</p><p>手机：未标格轻点翻开；已标格轻点时，异组先改归当前组并保留系数，同组才轮换；滑动菜单可关闭“点按轮换标记”，关闭后同组轻点不变。使用“滑动菜单”时，长按未翻开格打开菜单，划向菜单右、上、左、下的选项，选当前组的 1、i、−1、−i 系数；移到菜单中心松手清除，移出外圈松手取消。初始手指在中心 ∅ 内可原地松手清除；在其他位置时先移动选择，直接松手取消。松手前只预览。棋盘下方“标记方式”可切换为“直接标记”：长按未标格后松手落标，长按已有标记则清除。已开格轻点选中线索、长按展开。菜单出现前滑动仍用于滚动。底栏可选组、新组、整组变换；合并先点棋盘目标组，再点确认。</p><p>棋盘下方可关闭“启用分组”：只新建数值标记，收起分组工具，暂停中键选组及 I、C、M、0 分组快捷键。已有字母标记保留，重新标记时改用数值；撤销移到棋盘上方。开关会记住选择，随时可以重新开启。</p><p>键盘：方向键移动，Enter/空格执行左键操作；I 旋转、C 共轭、M 后中键选组进行合并、0 数值组、Esc 取消，Ctrl/⌘ Z 撤销标记。</p></dialog>
   <dialog id="about-dialog" class="reading-dialog">
     <div class="dialog-title"><h2>关于 Complexweeper</h2><button data-close aria-label="关闭">×</button></div>
     <p>本项目是复数扫雷的非官方网页扩展实现。基础玩法与创意来自<a href="https://github.com/Yueqing-Chen/complexweeper-A-minesweeper-game" target="_blank" rel="noopener noreferrer">青月晓（Yueqing-Chen）的 Complexweeper</a>。</p>
@@ -125,10 +130,12 @@ const board = el('board');
 const finale = endingScene(el('board-frame'), el<HTMLCanvasElement>('ending-canvas'), el('outcome'));
 const hintToggle = el<HTMLInputElement>('hints');
 const expandToggle = el<HTMLInputElement>('expansion');
+const groupingToggle = el<HTMLInputElement>('grouping');
 const markingSelect = el<HTMLSelectElement>('touch-marking');
 const tapCycleToggle = el<HTMLInputElement>('touch-tap-cycle');
 hintToggle.checked = preferences.hints;
 expandToggle.checked = preferences.expansion;
+groupingToggle.checked = preferences.grouping;
 markingSelect.value = preferences.markMenu ? 'menu' : 'direct';
 tapCycleToggle.checked = preferences.menuTapCycle;
 let buttons: HTMLButtonElement[] = [];
@@ -140,6 +147,9 @@ function toast(message: string): void {
 }
 
 function render(): void {
+  document.documentElement.classList.toggle('grouping-disabled', !preferences.grouping);
+  el('group-tools').hidden = !preferences.grouping;
+  el('quick-undo').hidden = preferences.grouping;
   const shapeKey = `${puzzle.shape.columns}:${puzzle.shape.rows}`;
   if (shapeKey !== lastShape) {
     lastShape = shapeKey; board.replaceChildren(); buttons = [];
@@ -163,7 +173,7 @@ function render(): void {
   const inspected = touchUI ? touchMerging ? -1 : held >= 0 && view[held]?.revealed ? held : touchView?.clue ?? -1 : pointed;
   const explicitPreview = held >= 0 && view[held]?.revealed && touchView?.ready && preferences.expansion;
   const highlighted = new Set((preferences.hints || explicitPreview) && inspected >= 0 ? assessments[inspected]?.candidates : []);
-  const pointedBasis = !touchUI && pointed >= 0 ? puzzle.tiles[pointed]?.mark?.basis : undefined;
+  const pointedBasis = preferences.grouping && !touchUI && pointed >= 0 ? puzzle.tiles[pointed]?.mark?.basis : undefined;
   let opened = 0, marks = 0;
   buttons.forEach((button, at) => {
     const tile = puzzle.tiles[at], publicTile = view[at], reading = publicTile.reading;
@@ -182,7 +192,7 @@ function render(): void {
     if (shownMark && !actual && !wasHit) classes.push('marked');
     if (reading && reading.kind !== 'empty' && assessments[at].satisfied && preferences.hints) classes.push('satisfied');
     if (highlighted.has(at)) classes.push('candidate');
-    if (tile.mark && (tile.mark.basis === selected || tile.mark.basis === pointedBasis) && !actual) classes.push('related');
+    if (preferences.grouping && tile.mark && (tile.mark.basis === selected || tile.mark.basis === pointedBasis) && !actual) classes.push('related');
     if (merging && tile.mark && tile.mark.basis !== selected) classes.push('merge-target');
     const mergePreview = !!touchMerging && !!tile.mark && tile.mark.basis === touchView?.mergeTarget;
     if (mergePreview) classes.push('touch-merge-preview');
@@ -217,9 +227,9 @@ function render(): void {
     ? '长按打开菜单，划向选项后松手标记。'
     : '长按后松手直接标记，已有标记则清除。';
   el('touch-tap-cycle-preference').hidden = !touchUI || !preferences.markMenu;
-  el('touch-tap-cycle-note').textContent = preferences.menuTapCycle
-    ? '异组先改归当前组，同组才轮换系数。'
-    : '点按仅改组，保留系数；同组不变。';
+  el('touch-tap-cycle-note').textContent = preferences.grouping
+    ? preferences.menuTapCycle ? '异组先改归当前组，同组才轮换系数。' : '点按仅改组，保留系数；同组不变。'
+    : preferences.menuTapCycle ? '点按数值标记轮换 1、i、−1、−i。' : '点按数值标记保持不变，长按选择新系数。';
   el('marked').textContent = String(marks); el('quota').textContent = ` / ${puzzle.shape.mines}`;
   el('time').textContent = clockText(elapsed(puzzle));
   el('progress').textContent = `${opened} / ${safe} 已翻开`; el('progress-bar').style.width = `${100 * opened / safe}%`;
@@ -235,8 +245,8 @@ function render(): void {
     : '待用新组';
   el('group-card').classList.toggle('merging', merging); el('merge-prompt').hidden = !merging;
   el('merge').setAttribute('aria-pressed', String(merging));
-  el<HTMLButtonElement>('undo').disabled = !puzzle.history.length || ended(puzzle) || paused;
-  for (const id of ['rotate', 'conjugate', 'fresh-group', 'constant', 'merge']) el<HTMLButtonElement>(id).disabled = ended(puzzle) || paused;
+  for (const id of ['undo', 'quick-undo']) el<HTMLButtonElement>(id).disabled = !puzzle.history.length || ended(puzzle) || paused;
+  for (const id of ['rotate', 'conjugate', 'fresh-group', 'constant', 'merge']) el<HTMLButtonElement>(id).disabled = !preferences.grouping || ended(puzzle) || paused;
   el('message').textContent = paused ? '继续后，计时与操作将恢复。' : merging ? '请中键点击另一组完成合并；Esc 取消。' : waiting ? '安全格已全部翻开。继续整理标记，使每条线索都满足。' :
     { ready: '点击任意格子开始。首次翻开的周围没有雷。', playing: '记录关系，再翻开你确定安全的格子。', won: '所有安全格已翻开，全部线索已满足。', lost: '踩到雷了。可以切换实际分布，检查刚才的推理。' }[puzzle.stage];
 }
@@ -247,6 +257,11 @@ function celebrate(): void {
 }
 
 function perform(action: Action): void {
+  if (!preferences.grouping) {
+    if (action.kind === 'turn' || action.kind === 'reflect' || action.kind === 'join') return;
+    if (action.kind === 'cycle') action = { ...action, basis: 0 };
+    if (action.kind === 'place' && action.mark) action = { ...action, mark: { basis: 0, rotation: action.mark.rotation } };
+  }
   touchControls?.cancelGesture(false);
   const before = puzzle;
   puzzle = apply(puzzle, action);
@@ -266,6 +281,7 @@ function left(at: number): void {
 }
 
 function middle(at: number): void {
+  if (!preferences.grouping) return;
   if (touchControls?.view.mergeSource != null) { touchControls.tap(at); return; }
   if (ended(puzzle) || puzzle.stage === 'playing' && puzzle.clock === null) return;
   const mark = puzzle.tiles[at]?.mark;
@@ -281,12 +297,13 @@ function middle(at: number): void {
 }
 
 function newGroup(): void {
-  if (ended(puzzle) || puzzle.stage === 'playing' && puzzle.clock === null) return;
+  if (!preferences.grouping || ended(puzzle) || puzzle.stage === 'playing' && puzzle.clock === null) return;
   touchControls?.cancelMerge(false);
   merging = false; selected = nextBasis(puzzle); render();
 }
 
 function toggleMerge(): void {
+  if (!preferences.grouping) return;
   if (usesTouchUI()) { touchControls?.toggleMerge(); return; }
   if (ended(puzzle) || puzzle.stage === 'playing' && puzzle.clock === null) return;
   if (merging) { merging = false; render(); return; }
@@ -313,7 +330,7 @@ el('constant').addEventListener('click', () => { selected = 0; merging = false; 
 el('rotate').addEventListener('click', () => { if (!merging) perform({ kind: 'turn', basis: selected }); });
 el('conjugate').addEventListener('click', () => { if (!merging) perform({ kind: 'reflect', basis: selected }); });
 el('merge').addEventListener('click', toggleMerge);
-el('undo').addEventListener('click', () => { merging = false; perform({ kind: 'undo' }); });
+for (const id of ['undo', 'quick-undo']) el(id).addEventListener('click', () => { merging = false; touchControls?.cancelMerge(false); perform({ kind: 'undo' }); });
 el('pause').addEventListener('click', () => { cancelPress(); perform({ kind: 'pause' }); });
 el('resume').addEventListener('click', () => perform({ kind: 'resume' }));
 el('review-marks').addEventListener('click', () => { revealActual = false; render(); });
@@ -321,6 +338,13 @@ el('review-field').addEventListener('click', () => { revealActual = true; render
 for (const [name, input] of [['hints', hintToggle], ['expansion', expandToggle]] as const) input.addEventListener('change', () => {
   preferences[name] = input.checked;
   savePreference(name, input.checked);
+  render();
+});
+groupingToggle.addEventListener('change', () => {
+  cancelPress(); touchControls?.cancelMerge(false);
+  merging = false; selected = 0;
+  preferences.grouping = groupingToggle.checked;
+  savePreference('grouping', preferences.grouping);
   render();
 });
 markingSelect.addEventListener('change', () => {
@@ -376,7 +400,7 @@ function updateFocus(at: number): void {
 }
 /** -1 is an eligible background; null leaves an ordinary browser control alone. */
 function middleTarget(target: EventTarget | null): number | null {
-  if (!(target instanceof Element) || document.querySelector('dialog[open]')) return null;
+  if (!preferences.grouping || !(target instanceof Element) || document.querySelector('dialog[open]')) return null;
   const at = indexFrom(target);
   if (at >= 0) return at;
   if (target.closest('a,button,input,select,textarea,label,dialog,[contenteditable]:not([contenteditable="false"]),[role="button"],[role="link"],[role="switch"],[role="textbox"]')) return null;
@@ -458,10 +482,10 @@ document.addEventListener('keydown', event => {
   if (key === 'z' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); merging = false; touchControls?.cancelMerge(false); perform({ kind: 'undo' }); return; }
   if (event.ctrlKey || event.metaKey || event.altKey) return;
   if (event.key === 'Escape') { merging = false; touchControls?.cancelMerge(false); render(); }
-  else if (key === 'i' && !merging && touchControls?.view.mergeSource == null) perform({ kind: 'turn', basis: selected });
-  else if (key === 'c' && !merging && touchControls?.view.mergeSource == null) perform({ kind: 'reflect', basis: selected });
-  else if (key === 'm') toggleMerge();
-  else if (key === '0') { selected = 0; merging = false; touchControls?.cancelMerge(false); render(); }
+  else if (preferences.grouping && key === 'i' && !merging && touchControls?.view.mergeSource == null) perform({ kind: 'turn', basis: selected });
+  else if (preferences.grouping && key === 'c' && !merging && touchControls?.view.mergeSource == null) perform({ kind: 'reflect', basis: selected });
+  else if (preferences.grouping && key === 'm') toggleMerge();
+  else if (preferences.grouping && key === '0') { selected = 0; merging = false; touchControls?.cancelMerge(false); render(); }
 });
 
 function loadHash(): void {
@@ -486,13 +510,14 @@ touchControls = createTouchControls({
   board,
   toolbar: el('touch-tools'),
   getPuzzle: () => puzzle,
-  getSelected: () => selected,
-  select: basis => { selected = basis; merging = false; },
+  getSelected: () => preferences.grouping ? selected : 0,
+  select: basis => { selected = preferences.grouping ? basis : 0; merging = false; },
   perform,
   refresh: render,
   focus: at => { focused = at; },
   hintsEnabled: () => preferences.hints,
   expansionEnabled: () => preferences.expansion,
+  groupingEnabled: () => preferences.grouping,
   markMenuEnabled: () => preferences.markMenu,
   tapCyclesEnabled: () => preferences.menuTapCycle,
   toast,

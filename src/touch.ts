@@ -14,6 +14,7 @@ type InteractionContext = {
   puzzle: Puzzle;
   markMenu: boolean;
   tapCycles: boolean;
+  grouping: boolean;
 };
 type Gesture = InteractionContext & {
   pointer: number;
@@ -53,6 +54,7 @@ export function createTouchControls(options: {
   focus: (at: number) => void;
   hintsEnabled: () => boolean;
   expansionEnabled: () => boolean;
+  groupingEnabled: () => boolean;
   markMenuEnabled: () => boolean;
   tapCyclesEnabled: () => boolean;
   toast: (message: string) => void;
@@ -89,11 +91,11 @@ export function createTouchControls(options: {
     return !blocked() && !document.querySelector('dialog[open]');
   }
   function interactionContext(): InteractionContext {
-    return { puzzle: getPuzzle(), basis: getSelected(), markMenu: options.markMenuEnabled(), tapCycles: options.tapCyclesEnabled() };
+    return { puzzle: getPuzzle(), basis: getSelected(), markMenu: options.markMenuEnabled(), tapCycles: options.tapCyclesEnabled(), grouping: options.groupingEnabled() };
   }
   function isCurrent(current: InteractionContext, checkBasis = true): boolean {
     return current.puzzle === getPuzzle() && (!checkBasis || current.basis === getSelected()) &&
-      current.markMenu === options.markMenuEnabled() && current.tapCycles === options.tapCyclesEnabled();
+      current.markMenu === options.markMenuEnabled() && current.tapCycles === options.tapCyclesEnabled() && current.grouping === options.groupingEnabled();
   }
   function cancelGesture(notify = true): void {
     const changed = gesture !== null || keyboardMark !== null || view.pressed !== null;
@@ -121,6 +123,7 @@ export function createTouchControls(options: {
     return new Set(getPuzzle().tiles.flatMap(tile => tile.mark ? [tile.mark.basis] : []));
   }
   function canMerge(): boolean {
+    if (!options.groupingEnabled()) return false;
     const source = getSelected(), groups = knownGroups();
     return (source === 0 || groups.has(source)) && [...groups].some(group => group !== source);
   }
@@ -128,7 +131,7 @@ export function createTouchControls(options: {
     return basis === 0 ? '1' : groupName(basis);
   }
   function toggleMerge(): void {
-    if (!available()) return;
+    if (!available() || !options.groupingEnabled()) return;
     cancelGesture(false);
     if (view.mergeSource === null) {
       if (!canMerge()) { toast('先选中已有组，再与另一组合并。'); refresh(); return; }
@@ -225,10 +228,11 @@ export function createTouchControls(options: {
     return options.tapCyclesEnabled() ? '点按翻开或轮换 · 长按划方向选标记' : '点按翻开或换组 · 长按选系数';
   }
   function sync(publicTiles: PublicTile[], assessments: Assessment[]): void {
-    const puzzle = getPuzzle(), selected = getSelected(), disabled = blocked();
+    const puzzle = getPuzzle(), selected = getSelected(), disabled = blocked(), grouping = options.groupingEnabled();
+    toolbar.hidden = !grouping;
     if (gesture && !isCurrent(gesture) || keyboardMark && !isCurrent(keyboardMark) ||
         !markMenu.root.hidden && !available()) cancelGesture(false);
-    if (disabled) cancelMerge(false);
+    if (disabled || !grouping && view.mergeSource !== null) cancelMerge(false);
     if (view.clue !== null && !publicTiles[view.clue]?.revealed) view.clue = null;
     if (view.mergeSource !== null && view.mergeSource !== selected) cancelMerge(false);
     const counts = new Map<number, number>();
@@ -247,10 +251,10 @@ export function createTouchControls(options: {
     picker.value = String(selected);
     toolbar.style.setProperty('--selected-group', selected ? groupColour(selected) : '#444');
     const merging = view.mergeSource !== null;
-    picker.disabled = fresh.disabled = disabled || merging;
-    rotate.disabled = reflect.disabled = disabled || merging || !counts.get(selected);
+    picker.disabled = fresh.disabled = disabled || merging || !grouping;
+    rotate.disabled = reflect.disabled = disabled || merging || !grouping || !counts.get(selected);
     undo.disabled = disabled || !puzzle.history.length;
-    merge.disabled = disabled || !merging && !canMerge();
+    merge.disabled = disabled || !grouping || !merging && !canMerge();
     merge.setAttribute('aria-pressed', String(merging));
     merge.textContent = !merging ? '合并' : view.mergeTarget === null ? '取消合并'
       : '确认 ' + groupUnit(view.mergeSource!) + '=' + groupUnit(view.mergeTarget);
@@ -260,23 +264,23 @@ export function createTouchControls(options: {
   }
 
   picker.addEventListener('change', () => {
-    if (!available() || view.mergeSource !== null) return;
+    if (!available() || !options.groupingEnabled() || view.mergeSource !== null) return;
     cancelGesture(false);
     const basis = Number(picker.value);
     if (!Number.isInteger(basis) || basis < 0) return;
     select(basis); refresh();
   });
   fresh.addEventListener('click', () => {
-    if (!available() || view.mergeSource !== null) return;
+    if (!available() || !options.groupingEnabled() || view.mergeSource !== null) return;
     cancelGesture(false);
     select(nextBasis(getPuzzle()));
     refresh();
   });
   rotate.addEventListener('click', () => {
-    if (available() && view.mergeSource === null) { cancelGesture(false); perform({ kind: 'turn', basis: getSelected() }); }
+    if (available() && options.groupingEnabled() && view.mergeSource === null) { cancelGesture(false); perform({ kind: 'turn', basis: getSelected() }); }
   });
   reflect.addEventListener('click', () => {
-    if (available() && view.mergeSource === null) { cancelGesture(false); perform({ kind: 'reflect', basis: getSelected() }); }
+    if (available() && options.groupingEnabled() && view.mergeSource === null) { cancelGesture(false); perform({ kind: 'reflect', basis: getSelected() }); }
   });
   undo.addEventListener('click', () => {
     if (!available()) return;
@@ -367,7 +371,7 @@ export function createTouchControls(options: {
 
   const resize = new ResizeObserver(() => {
     const height = Math.ceil(toolbar.getBoundingClientRect().height);
-    if (height) document.documentElement.style.setProperty('--touch-toolbar-height', height + 'px');
+    document.documentElement.style.setProperty('--touch-toolbar-height', height + 'px');
   });
   resize.observe(toolbar);
   return { view, sync, tap, hold, toggleMerge, cancelMerge, cancelGesture, reset };
