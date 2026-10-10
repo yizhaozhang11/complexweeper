@@ -1,0 +1,37 @@
+/* SPDX-FileCopyrightText: 2026 yizhaozhang11
+ * SPDX-License-Identifier: GPL-3.0-only */
+
+.mark-menu { position:fixed; inset:0; z-index:18; pointer-events:none; }
+.mark-menu-disc {
+  position:absolute; width:var(--menu-size); height:var(--menu-size); border-radius:50%;
+  background:rgb(249 249 249 / .68); border:1px solid rgb(110 110 110 / .14);
+  box-shadow:0 3px 14px rgb(0 0 0 / .07);
+  -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px);
+  animation:mark-menu-appear 100ms ease-out; transform-origin:center;
+  --group:var(--menu-group);
+}
+.mark-menu-plane { position:absolute; inset:0; width:100%; height:100%; }
+.mark-menu-axes { fill:none; stroke:#929292; stroke-width:1; opacity:.55; }
+.mark-menu-axis-label { fill:#777; font:14px var(--math); }
+.mark-menu-option {
+  position:absolute; width:var(--menu-option-size); height:var(--menu-option-size); border-radius:50%;
+  left:50%; top:50%; transform:translate(-50%,-50%);
+  border:1px solid transparent; background:rgb(255 255 255 / .34); color:#333;
+  display:flex; align-items:center; justify-content:center; padding:0;
+  font-size:24px; line-height:1; white-space:nowrap;
+}
+.mark-menu-option[data-choice="0"] { left:calc(50% + var(--menu-option-distance)); }
+.mark-menu-option[data-choice="1"] { top:calc(50% - var(--menu-option-distance)); }
+.mark-menu-option[data-choice="2"] { left:calc(50% - var(--menu-option-distance)); }
+.mark-menu-option[data-choice="3"] { top:calc(50% + var(--menu-option-distance)); }
+.mark-menu-clear { width:var(--menu-clear-size); height:var(--menu-clear-size); font-size:22px; color:#656565; }
+.mark-menu-empty { display:block; width:1em; height:1em; fill:none; stroke:currentColor; stroke-width:1.25; stroke-linecap:round; }
+.mark-menu-option[aria-pressed=true] { background:rgb(53 53 53 / .88); color:#fff; --group:var(--menu-group-light); }
+.mark-menu-preview { position:absolute; transform:translateX(-50%); padding:4px 9px; background:rgb(51 51 51 / .9); color:#fff; font-size:12px; line-height:20px; white-space:nowrap; border-radius:3px; box-shadow:0 2px 8px #0001; }
+.mark-menu-tether { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+.mark-menu-tether line { stroke:#3f6c93; stroke-width:1; stroke-dasharray:3 3; opacity:.6; }
+.mark-menu-tether circle { fill:#3f6c93; }
+.mark-menu[data-mode=keyboard] .mark-menu-option { pointer-events:auto; }
+.mark-menu-option:focus-visible { outline-offset:2px; }
+@keyframes mark-menu-appear { from { opacity:0; scale:.94; } to { opacity:1; scale:1; } }
+@media(prefers-reduced-motion:reduce) { .mark-menu-disc { animation:none; } }

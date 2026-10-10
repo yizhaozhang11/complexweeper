@@ -37,6 +37,11 @@
 .touch .preferences { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 20px; }
 .touch .preferences label { gap:12px; }
 .touch .preferences .outline { grid-column:1/-1; }
+.touch-marking-preference { grid-column:1/-1; }
+.touch-marking-preference select { min-width:144px; max-width:65%; min-height:44px; padding:7px 10px; border:1px solid #bbb; border-radius:0; background:#fafafa; font-size:16px; }
+.touch-marking-preference p { margin:7px 0 0; color:#777; font-size:12px; line-height:1.6; }
+.touch-tap-cycle-preference { margin-top:12px; padding-left:12px; border-left:2px solid #e2e2e2; }
+.touch-tap-cycle-preference label { min-height:44px; }
 .touch .tile { font-size:17px; scroll-margin-bottom:calc(var(--touch-toolbar-height,130px) + 24px); }
 .touch #board { --size:31px; }
 .touch .tile.inspected { outline:2px solid #3f6c93; outline-offset:1px; z-index:1; }

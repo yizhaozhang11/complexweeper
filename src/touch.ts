@@ -5,15 +5,22 @@ import './touch.css';
 import { assessAll, ended, groupName, markText, nextBasis } from './puzzle.ts';
 import type { Action, Assessment, PublicTile, Puzzle } from './puzzle.ts';
 import { groupColour, readingText } from './notation.ts';
+import { createMarkMenu, describeMarkChoice } from './mark-menu.ts';
+import type { MarkChoice } from './mark-menu.ts';
 
-type Intent = 'mark' | 'erase' | 'expand' | 'merge' | 'background';
-type Gesture = {
+type Intent = 'mark' | 'expand' | 'merge' | 'background';
+type InteractionContext = {
+  basis: number;
+  puzzle: Puzzle;
+  markMenu: boolean;
+  tapCycles: boolean;
+};
+type Gesture = InteractionContext & {
   pointer: number;
   at: number;
   x: number;
   y: number;
-  basis: number;
-  puzzle: Puzzle;
+  position: { x: number; y: number };
   intent: Intent;
   timer?: ReturnType<typeof setTimeout>;
 };
@@ -41,11 +48,13 @@ export function createTouchControls(options: {
   getPuzzle: () => Puzzle;
   getSelected: () => number;
   select: (basis: number) => void;
-  perform: (action: Action) => void;
+  perform: (action: Action) => void; // Applies the action and refreshes the view, including no-op actions.
   refresh: () => void;
   focus: (at: number) => void;
   hintsEnabled: () => boolean;
   expansionEnabled: () => boolean;
+  markMenuEnabled: () => boolean;
+  tapCyclesEnabled: () => boolean;
   toast: (message: string) => void;
 }): TouchControls {
   const { board, toolbar, getPuzzle, getSelected, select, perform, refresh, focus, toast } = options;
@@ -61,7 +70,16 @@ export function createTouchControls(options: {
   const view: TouchView = { clue: null, pressed: null, ready: false, mergeSource: null, mergeTarget: null };
   const pointers = new Set<number>();
   let gesture: Gesture | null = null;
+  let keyboardMark: (InteractionContext & { at: number }) | null = null;
   let optionSignature = '';
+  const markMenu = createMarkMenu(choice => {
+    const current = keyboardMark;
+    if (!current) return;
+    const valid = available() && isCurrent(current);
+    cancelGesture(false);
+    if (valid) placeChoice(current.at, current.basis, choice);
+    else refresh();
+  }, () => cancelGesture());
 
   function blocked(): boolean {
     const puzzle = getPuzzle();
@@ -70,12 +88,25 @@ export function createTouchControls(options: {
   function available(): boolean {
     return !blocked() && !document.querySelector('dialog[open]');
   }
+  function interactionContext(): InteractionContext {
+    return { puzzle: getPuzzle(), basis: getSelected(), markMenu: options.markMenuEnabled(), tapCycles: options.tapCyclesEnabled() };
+  }
+  function isCurrent(current: InteractionContext, checkBasis = true): boolean {
+    return current.puzzle === getPuzzle() && (!checkBasis || current.basis === getSelected()) &&
+      current.markMenu === options.markMenuEnabled() && current.tapCycles === options.tapCyclesEnabled();
+  }
   function cancelGesture(notify = true): void {
-    const changed = gesture !== null || view.pressed !== null;
+    const changed = gesture !== null || keyboardMark !== null || view.pressed !== null;
+    const restoreFocus = keyboardMark && markMenu.root.contains(document.activeElement) ? keyboardMark.at : null;
     if (gesture) clearTimeout(gesture.timer);
-    gesture = null;
+    gesture = null; keyboardMark = null; markMenu.hide();
     view.pressed = null; view.ready = false;
+    if (restoreFocus !== null) board.querySelector<HTMLElement>(`[data-at="${restoreFocus}"]`)?.focus({ preventScroll: true });
     if (changed && notify) refresh();
+  }
+  function placeChoice(at: number, basis: number, choice: MarkChoice): void {
+    if (choice === 'cancel' || choice === 'pending') { refresh(); return; }
+    perform({ kind: 'place', at, mark: choice === 'clear' ? null : { basis, rotation: choice } });
   }
   function cancelMerge(notify = true): void {
     cancelGesture(false);
@@ -100,7 +131,7 @@ export function createTouchControls(options: {
     if (!available()) return;
     cancelGesture(false);
     if (view.mergeSource === null) {
-      if (!canMerge()) { toast('先选中已有组，再与另一组合并。'); return; }
+      if (!canMerge()) { toast('先选中已有组，再与另一组合并。'); refresh(); return; }
       view.mergeSource = getSelected(); view.mergeTarget = null;
     } else if (view.mergeTarget === null) {
       cancelMerge(false);
@@ -108,44 +139,54 @@ export function createTouchControls(options: {
       const source = view.mergeSource, target = view.mergeTarget;
       cancelMerge(false);
       select(source === 0 || target === 0 ? 0 : source);
-      perform({ kind: 'join', from: target, into: source });
+      return perform({ kind: 'join', from: target, into: source });
     }
     refresh();
   }
   function tap(at: number): void {
-    if (!available()) return;
+    if (!available()) { refresh(); return; }
     const tile = getPuzzle().tiles[at];
     if (view.mergeSource !== null) {
       if (tile?.mark) {
         view.mergeTarget = tile.mark.basis === view.mergeSource ? null : tile.mark.basis;
-        refresh();
       }
-      return;
-    }
-    if (!tile) { view.clue = null; refresh(); return; }
-    if (tile.revealed) {
+    } else if (!tile) {
+      view.clue = null;
+    } else if (tile.revealed) {
       view.clue = view.clue === at ? null : at;
-      refresh();
     } else if (tile.mark) {
-      perform({ kind: 'cycle', at, basis: getSelected(), keep: true });
+      const basis = getSelected();
+      if (tile.mark.basis !== basis || !options.markMenuEnabled() || options.tapCyclesEnabled()) {
+        return perform({ kind: 'cycle', at, basis, keep: true });
+      }
     } else {
-      perform({ kind: 'open', at });
+      return perform({ kind: 'open', at });
     }
+    // Actions refresh through perform; view-only changes and ignored taps finish here.
+    refresh();
   }
   function hold(at: number): void {
-    if (!available()) return;
+    if (!available()) { refresh(); return; }
     if (view.mergeSource !== null) { tap(at); return; }
     const tile = getPuzzle().tiles[at];
-    if (!tile) return;
+    if (!tile) { refresh(); return; }
     if (tile.revealed) {
       view.clue = at;
       if (!options.expansionEnabled()) toast('长按展开已关闭。');
-      else if (assessAll(getPuzzle())[at]?.candidates.length) perform({ kind: 'expand', at });
+      else if (assessAll(getPuzzle())[at]?.candidates.length) return perform({ kind: 'expand', at });
       else toast('这条线索暂时没有可展开的邻格。');
-      refresh();
+    } else if (!options.markMenuEnabled()) {
+      return perform({ kind: 'place', at, mark: tile.mark ? null : { basis: getSelected(), rotation: 0 } });
     } else {
-      perform({ kind: 'place', at, mark: tile.mark ? null : { basis: getSelected(), rotation: 0 } });
+      cancelGesture(false);
+      const cell = board.querySelector<HTMLElement>(`[data-at="${at}"]`);
+      if (!cell) { refresh(); return; }
+      const rect = cell.getBoundingClientRect();
+      keyboardMark = { at, ...interactionContext() };
+      view.pressed = at; view.ready = true;
+      markMenu.show(at, keyboardMark.basis, rect.left + rect.width / 2, rect.top + rect.height / 2, !!tile.mark, true);
     }
+    refresh();
   }
   function describe(publicTiles: PublicTile[], assessments: Assessment[]): string {
     if (view.mergeSource !== null) {
@@ -153,14 +194,20 @@ export function createTouchControls(options: {
         : groupUnit(view.mergeSource) + ' = ' + groupUnit(view.mergeTarget) + ' · 再点确认合并';
     }
     if (gesture && view.pressed !== null) {
-      if (gesture.intent === 'mark') return (view.ready ? '松手标记 ' : '按住以标记 ') + markText({ basis: gesture.basis, rotation: 0 });
-      if (gesture.intent === 'erase') return view.ready ? '松手清除标记' : '按住以清除标记';
+      if (gesture.intent === 'mark') {
+        if (!gesture.markMenu) return gesture.puzzle.tiles[gesture.at].mark
+          ? (view.ready ? '松手清除标记' : '按住以清除标记')
+          : (view.ready ? '松手标记 ' : '按住以标记 ') + markText({ basis: gesture.basis, rotation: 0 });
+        if (!view.ready) return '按住打开标记菜单';
+        return describeMarkChoice(markMenu.choice, gesture.basis, 'toolbar');
+      }
       if (gesture.intent === 'expand') {
         if (!options.expansionEnabled()) return '长按展开已关闭';
         const count = assessments[gesture.at]?.candidates.length || 0;
         return count ? (view.ready ? '松手展开 ' : '按住以展开 ') + count + ' 格' : '当前线索没有可展开的邻格';
       }
     }
+    if (keyboardMark) return '方向键选择 · Enter 确认 · Esc 取消';
     if (view.clue !== null) {
       const reading = publicTiles[view.clue]?.reading;
       if (reading) {
@@ -174,10 +221,13 @@ export function createTouchControls(options: {
         return label + ' · 已选中线索';
       }
     }
-    return '点按翻开或轮换 · 长按标记或清除';
+    if (!options.markMenuEnabled()) return '点按翻开或轮换 · 长按标记或清除';
+    return options.tapCyclesEnabled() ? '点按翻开或轮换 · 长按划方向选标记' : '点按翻开或换组 · 长按选系数';
   }
   function sync(publicTiles: PublicTile[], assessments: Assessment[]): void {
     const puzzle = getPuzzle(), selected = getSelected(), disabled = blocked();
+    if (gesture && !isCurrent(gesture) || keyboardMark && !isCurrent(keyboardMark) ||
+        !markMenu.root.hidden && !available()) cancelGesture(false);
     if (disabled) cancelMerge(false);
     if (view.clue !== null && !publicTiles[view.clue]?.revealed) view.clue = null;
     if (view.mergeSource !== null && view.mergeSource !== selected) cancelMerge(false);
@@ -219,7 +269,7 @@ export function createTouchControls(options: {
   fresh.addEventListener('click', () => {
     if (!available() || view.mergeSource !== null) return;
     cancelGesture(false);
-    select(nextBasis(getPuzzle(), 1));
+    select(nextBasis(getPuzzle()));
     refresh();
   });
   rotate.addEventListener('click', () => {
@@ -230,7 +280,7 @@ export function createTouchControls(options: {
   });
   undo.addEventListener('click', () => {
     if (!available()) return;
-    cancelMerge(false); perform({ kind: 'undo' }); refresh();
+    cancelMerge(false); perform({ kind: 'undo' });
   });
   merge.addEventListener('click', toggleMerge);
   cancel.addEventListener('click', () => cancelMerge());
@@ -247,6 +297,7 @@ export function createTouchControls(options: {
     return indexFrom(target) ?? (isBackground(target) ? -1 : null);
   }
   document.addEventListener('pointerdown', event => {
+    if (keyboardMark && event.target instanceof Node && markMenu.root.contains(event.target)) return;
     if (event.pointerType === 'mouse') { cancelGesture(); return; }
     pointers.add(event.pointerId);
     if (pointers.size !== 1) { cancelGesture(); return; }
@@ -255,41 +306,64 @@ export function createTouchControls(options: {
     const at = indexFrom(event.target) ?? (isBackground(event.target) ? -1 : null);
     if (at === null) return;
     const puzzle = getPuzzle(), tile = puzzle.tiles[at];
-    const intent: Intent = view.mergeSource !== null ? 'merge' : !tile ? 'background' : tile.revealed ? 'expand' : tile.mark ? 'erase' : 'mark';
-    gesture = { pointer: event.pointerId, at, x: event.clientX, y: event.clientY, basis: getSelected(), puzzle, intent };
+    const intent: Intent = view.mergeSource !== null ? 'merge' : !tile ? 'background' : tile.revealed ? 'expand' : 'mark';
+    const position = { x: event.clientX, y: event.clientY };
+    gesture = { ...interactionContext(), pointer: event.pointerId, at, ...position, position, intent };
     if (at >= 0) { focus(at); view.pressed = at; }
     if (intent !== 'merge' && intent !== 'background') {
       const current = gesture;
       current.timer = setTimeout(() => {
         if (gesture !== current || !available()) return;
+        if (!isCurrent(current)) { cancelGesture(); return; }
+        if (current.intent === 'mark' && current.markMenu) markMenu.show(current.at, current.basis, current.position.x, current.position.y, !!tile.mark);
         view.ready = true; refresh();
-      }, 450);
+      }, 200);
     }
     refresh();
   }, true);
   document.addEventListener('pointermove', event => {
     if (gesture?.pointer !== event.pointerId) return;
+    // Keep the original x/y for drag cancellation; open the menu at the latest touch.
+    gesture.position = { x: event.clientX, y: event.clientY };
+    if (view.ready && gesture.intent === 'mark' && gesture.markMenu) {
+      const before = markMenu.choice;
+      markMenu.move(event.clientX, event.clientY);
+      if (markMenu.choice !== before) refresh();
+      return;
+    }
     if (Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 8 || releasedAt(event) !== gesture.at) cancelGesture();
   });
+  // A non-passive first touchmove can keep the current touch from starting native
+  // scrolling. Leave ordinary drags native; changing touch-action after the hold
+  // would be too late for an already active pointer.
+  board.addEventListener('touchmove', event => {
+    if (!gesture || !view.ready || gesture.intent !== 'mark' || !gesture.markMenu) return;
+    if (event.touches.length === 1 && event.cancelable) event.preventDefault();
+    else cancelGesture();
+  }, { passive: false });
   document.addEventListener('pointerup', event => {
     if (event.pointerType === 'mouse') return;
     pointers.delete(event.pointerId);
     const current = gesture;
     if (!current || current.pointer !== event.pointerId) return;
     const held = view.ready;
+    const choosing = held && current.intent === 'mark' && current.markMenu;
+    // A changed lift coordinate must not silently replace the displayed choice.
+    const choice = choosing ? markMenu.choice : 'cancel';
     cancelGesture(false);
-    if (pointers.size || !available() || releasedAt(event) !== current.at || getPuzzle() !== current.puzzle ||
-        current.intent === 'mark' && current.basis !== getSelected()) {
+    if (pointers.size || !available() || !isCurrent(current, current.intent === 'mark') || !choosing && releasedAt(event) !== current.at) {
       refresh(); return;
     }
-    if (held) hold(current.at); else tap(current.at);
-    refresh();
+    if (choosing) placeChoice(current.at, current.basis, choice);
+    else if (held) hold(current.at); else tap(current.at);
   });
   document.addEventListener('pointercancel', event => { pointers.delete(event.pointerId); cancelGesture(); });
   document.addEventListener('wheel', () => cancelGesture(), { passive: true, capture: true });
   document.addEventListener('scroll', () => cancelGesture(), true);
   window.addEventListener('blur', () => { cancelGesture(); pointers.clear(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelGesture(); pointers.clear(); } });
+  window.addEventListener('resize', () => cancelGesture());
+  window.visualViewport?.addEventListener('resize', () => cancelGesture());
 
   const resize = new ResizeObserver(() => {
     const height = Math.ceil(toolbar.getBoundingClientRect().height);

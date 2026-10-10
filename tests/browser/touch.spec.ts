@@ -27,12 +27,12 @@ test('tap and hold follow cell state; a hold commits on release without a second
   await expect(page.locator('[data-tool]')).toHaveCount(0);
   await expect(page.locator('#group-card')).toBeHidden();
   await page.locator('#touch-new-group').tap();
-  await expect(page.locator('#touch-group')).toHaveValue('1');
-  await page.locator('#touch-group').selectOption('0');
+  await expect(page.locator('#touch-group')).toHaveValue('0');
   const first = await beginTouch(page, 0);
   await first.ready();
   await expect(first.cell).toHaveAttribute('data-mark', '');
   await expect(first.cell).toHaveAttribute('data-open', 'false');
+  await first.choose(0);
   await first.end();
   await expect(first.cell).toHaveAttribute('data-mark', '1');
   for (const value of ['i', '−1', '−i', '1']) {
@@ -53,6 +53,7 @@ test('tap and hold follow cell state; a hold commits on release without a second
   const erase = await beginTouch(page, 0);
   await erase.ready();
   await expect(erase.cell).toHaveAttribute('data-mark', 'ia');
+  await erase.choose('clear');
   await erase.end();
   await erase.cell.dispatchEvent('click');
   await expect(erase.cell).toHaveAttribute('data-mark', '');
@@ -91,7 +92,6 @@ test('a different selected group reassigns only the tapped mark before cycling, 
 test('dragging away and back, cancellation, scrolling and multiple pointers never commit a hold', async ({ page }) => {
   await page.goto('/');
   const away = await beginTouch(page, 0);
-  await away.ready();
   await away.move(24, 0);
   await away.move(0, 0);
   await away.end();
@@ -203,6 +203,17 @@ test('group selection, transforms, new letters and undo use the shared algebra',
   await expect(cell(page, 4)).toHaveAttribute('data-mark', '');
   await page.locator('#touch-new-group').tap();
   await expect(page.locator('#touch-group')).toHaveValue('3');
+
+  await longPress(page, 0);
+  await expect(cell(page, 0)).toHaveAttribute('data-mark', '');
+  await page.locator('#touch-new-group').tap();
+  await expect(page.locator('#touch-group')).toHaveValue('0');
+  await page.locator('#touch-new-group').tap();
+  await expect(page.locator('#touch-group')).toHaveValue('0');
+  await longPress(page, 4);
+  await expect(cell(page, 4)).toHaveAttribute('data-mark', '1');
+  await page.locator('#touch-new-group').tap();
+  await expect(page.locator('#touch-group')).toHaveValue('3');
 });
 
 test('merge previews a whole target group, blocks edits, confirms explicitly and is reversible', async ({ page }) => {
@@ -259,12 +270,18 @@ test('an external keyboard can use tap and hold equivalents without repeating a 
   await page.locator('#touch-new-group').tap();
   const target = cell(page, 0);
   await target.press('Shift+Enter');
-  await expect(target).toHaveAttribute('data-mark', 'a');
+  await expect(page.locator('#mark-menu')).toBeVisible();
+  await expect(target).toHaveAttribute('data-mark', '');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Enter');
+  await expect(target).toHaveAttribute('data-mark', '1');
   await target.dispatchEvent('keydown', { key: 'Enter', shiftKey: true, repeat: true, bubbles: true });
-  await expect(target).toHaveAttribute('data-mark', 'a');
+  await expect(target).toHaveAttribute('data-mark', '1');
   await target.press('Enter');
-  await expect(target).toHaveAttribute('data-mark', 'ia');
+  await expect(target).toHaveAttribute('data-mark', 'i');
   await target.press('Shift+Space');
+  await expect(page.locator('#mark-menu')).toBeVisible();
+  await page.keyboard.press('Enter');
   await expect(target).toHaveAttribute('data-mark', '');
   await expect(target).toHaveAttribute('data-open', 'false');
   await target.press('Space');
