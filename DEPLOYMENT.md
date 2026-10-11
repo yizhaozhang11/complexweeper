@@ -59,6 +59,16 @@ GitHub Actions 构建时从 `GITHUB_SERVER_URL`、`GITHUB_REPOSITORY` 和 `GITHU
 
 `.cache/`、`node_modules/`、`dist/`、浏览器测试产物和自动生成的源码压缩包已经由 `.gitignore` 排除。
 
+## 可选的访问统计
+
+Cloudflare Web Analytics 通过部署时注入接入。先在 Cloudflare 的 Web Analytics 中添加站点域名；GitHub Pages 项目填写 `用户名.github.io`，不带仓库路径。取得安装代码中的站点统计 token 后，在 GitHub 仓库 **Settings → Secrets and variables → Actions → Variables** 添加仓库变量 `CW_WEB_ANALYTICS_TOKEN`，值为这段 32 位十六进制标识，不是 Cloudflare 账号 API Token。
+
+默认分支部署在构建及测试通过后运行 `tools/inject-analytics.mjs`，只向 `dist/index.html`、`dist/guide.html` 和 `dist/changes.html` 加入统计脚本，再上传 Pages 产物。实际 token 不写入仓库、`public/` 或源码包；发布后的 HTML 中会包含这个公开的站点标识。变量未设置或为空时，注入步骤保持页面不变；格式不正确时停止部署。
+
+普通本地开发、构建和自动化测试不加载统计脚本。脚本关闭 SPA 路由计数，分享片段及局面切换不额外计作页面访问。后台可按 `/仓库名/` 路径筛选游戏，并查看浏览量、访问次数、设备类型、浏览器和来源；设备类型是手机、平板或电脑分类，不代表游戏实际使用了触屏操作。
+
+修改变量后需重新部署才会生效。删除或清空变量并重新部署可移除脚本。注入工具本身包含在对应源码包中，可通过设置同名环境变量并在构建后运行 `node tools/inject-analytics.mjs` 复现部署 HTML。
+
 ## 每次更新时维护说明
 
 1. 在 `CHANGELOG.md` 最前面的更新条目之前，新增 `## YYYY-MM-DD · 简短标题`，旧条目保留在下面。

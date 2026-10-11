@@ -50,6 +50,12 @@ jobs:
       - name: Test production site in a subdirectory
         run: npm run test:pages
 
+      - name: Add analytics to deployment pages
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        env:
+          CW_WEB_ANALYTICS_TOKEN: ${{ vars.CW_WEB_ANALYTICS_TOKEN }}
+        run: node tools/inject-analytics.mjs
+
       - name: Upload site
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4

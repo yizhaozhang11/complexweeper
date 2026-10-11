@@ -99,7 +99,7 @@ root.innerHTML = `
     <div class="dialog-title"><h2>关于 Complexweeper</h2><button data-close aria-label="关闭">×</button></div>
     <p>本项目是复数扫雷的非官方网页扩展实现。基础玩法与创意来自<a href="https://github.com/Yueqing-Chen/complexweeper-A-minesweeper-game" target="_blank" rel="noopener noreferrer">青月晓（Yueqing-Chen）的 Complexweeper</a>。</p>
     <p>本版本加入 1 / 1* 公开线索、符号分组、条件展开和线索满足胜利等规则。</p>
-    <p>作者：<a href="https://github.com/yizhaozhang11" target="_blank" rel="noopener noreferrer">yizhaozhang11</a>。代码由作者本人在 OpenAI Codex 辅助下编写。版本 ${__CHANGE_NOTES__.version} · 2026-10-10。</p>
+    <p>作者：<a href="https://github.com/yizhaozhang11" target="_blank" rel="noopener noreferrer">yizhaozhang11</a>。代码由作者本人在 OpenAI Codex 辅助下编写。版本 ${__CHANGE_NOTES__.version} · 2026-10-11。</p>
     <p>Copyright © 2026 yizhaozhang11。项目自有代码及文档按 <a href="${base}legal/GPL-3.0.txt" target="_blank" rel="noopener noreferrer">GNU GPL 第 3 版（GPL-3.0-only）</a> 发布，可依许可复制、修改和再分发。本程序不提供任何担保，包括适销性或特定用途适用性的担保。</p>
     <p>数学字体为 Latin Modern Math 1.959，作者 B. Jackowski、P. Strzelczyk、P. Pianowski。字体及生成的字形轮廓按 <a href="${base}fonts/GUST-FONT-LICENSE.txt" target="_blank" rel="noopener noreferrer">GUST 字体许可</a> 使用。</p>
     <p><a href="${base}legal/COPYRIGHT.txt" target="_blank" rel="noopener noreferrer">版权与来源说明</a> · <a id="source-version-link" href="${base}source.tgz" download>下载本版本源码与构建说明</a></p>
