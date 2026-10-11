@@ -12,7 +12,7 @@ const setGrouping = (page: Page, enabled: boolean) => page.locator('#grouping').
   input.checked = enabled; input.dispatchEvent(new Event('change', { bubbles: true }));
 }, enabled);
 
-test('grouping defaults on; switching off gives the board more space and preserves existing marks', async ({ page, isMobile }) => {
+test('grouping defaults on; switching off releases tools and preserves existing marks', async ({ page, isMobile }) => {
   const puzzle = createPuzzle({ columns: 32, rows: 16, mines: 90 });
   puzzle.tiles[0].mark = { basis: 0, rotation: 0 };
   puzzle.tiles[1].mark = { basis: 1, rotation: 3 };
@@ -38,7 +38,7 @@ test('grouping defaults on; switching off gives the board more space and preserv
     const undo = (await page.locator('#quick-undo').boundingBox())!;
     expect(undo.width).toBeGreaterThanOrEqual(44); expect(undo.height).toBeGreaterThanOrEqual(44);
   } else {
-    expect(await page.locator('#board-scroll').evaluate(el => el.clientWidth)).toBeGreaterThan(before.width + 150);
+    expect(await page.locator('#board-scroll').evaluate(el => el.clientWidth)).toBe(before.width);
     expect(await page.locator('#board-scroll').evaluate(el => el.scrollWidth <= el.clientWidth)).toBeTruthy();
     expect((await page.locator('.sidebar').boundingBox())!.y).toBeGreaterThan((await page.locator('.play-space').boundingBox())!.y);
   }

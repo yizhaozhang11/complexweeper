@@ -127,6 +127,7 @@ for (const [id, url, label] of [
   link.rel = 'noopener noreferrer';
 }
 const board = el('board');
+const playLayout = root.querySelector<HTMLElement>('main')!;
 const finale = endingScene(el('board-frame'), el<HTMLCanvasElement>('ending-canvas'), el('outcome'));
 const hintToggle = el<HTMLInputElement>('hints');
 const expandToggle = el<HTMLInputElement>('expansion');
@@ -144,6 +145,27 @@ let lastShape = '';
 function toast(message: string): void {
   clearTimeout(toastTimer); el('toast').textContent = message; el('toast').hidden = false;
   toastTimer = setTimeout(() => el('toast').hidden = true, 3500);
+}
+
+function updateBoardLayout(): void {
+  let below = false;
+  if (preferences.grouping && !usesTouchUI() && !narrowWindow.matches) {
+    const layout = getComputedStyle(playLayout);
+    const insets = [el('board-frame'), el('board-scroll')].reduce((width, element) => {
+      const style = getComputedStyle(element);
+      return width + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) +
+        parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
+    }, 0);
+    // Compare with the space needed beside the sidebar, even when it is below.
+    // Measuring the current scroll area instead would toggle the layout back and forth.
+    const required = board.getBoundingClientRect().width + insets +
+      parseFloat(layout.getPropertyValue('--sidebar-width')) + parseFloat(layout.getPropertyValue('--sidebar-gap'));
+    below = required > playLayout.clientWidth;
+  }
+  if (playLayout.classList.contains('tools-below') !== below) {
+    cancelPress();
+    playLayout.classList.toggle('tools-below', below);
+  }
 }
 
 function render(): void {
@@ -249,6 +271,7 @@ function render(): void {
   for (const id of ['rotate', 'conjugate', 'fresh-group', 'constant', 'merge']) el<HTMLButtonElement>(id).disabled = !preferences.grouping || ended(puzzle) || paused;
   el('message').textContent = paused ? '继续后，计时与操作将恢复。' : merging ? '请中键点击另一组完成合并；Esc 取消。' : waiting ? '安全格已全部翻开。继续整理标记，使每条线索都满足。' :
     { ready: '点击任意格子开始。首次翻开的周围没有雷。', playing: '记录关系，再翻开你确定安全的格子。', won: '所有安全格已翻开，全部线索已满足。', lost: '踩到雷了。可以切换实际分布，检查刚才的推理。' }[puzzle.stage];
+  updateBoardLayout();
 }
 
 function celebrate(): void {
@@ -524,6 +547,16 @@ touchControls = createTouchControls({
 });
 touchDevice.addEventListener('change', updateInputLayout);
 narrowWindow.addEventListener('change', updateInputLayout);
+let boardLayoutFrame: number | undefined;
+const boardLayoutObserver = new ResizeObserver(() => {
+  if (boardLayoutFrame !== undefined) return;
+  boardLayoutFrame = requestAnimationFrame(() => {
+    boardLayoutFrame = undefined;
+    updateBoardLayout();
+  });
+});
+boardLayoutObserver.observe(playLayout);
+boardLayoutObserver.observe(board);
 updateInputLayout();
 window.addEventListener('hashchange', loadHash);
 render(); loadHash();
