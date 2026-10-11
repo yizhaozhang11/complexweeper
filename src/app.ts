@@ -196,10 +196,13 @@ function render(): void {
   const explicitPreview = held >= 0 && view[held]?.revealed && touchView?.ready && preferences.expansion;
   const highlighted = new Set((preferences.hints || explicitPreview) && inspected >= 0 ? assessments[inspected]?.candidates : []);
   const pointedBasis = preferences.grouping && !touchUI && pointed >= 0 ? puzzle.tiles[pointed]?.mark?.basis : undefined;
-  let opened = 0, marks = 0;
+  const opened = view.filter(tile => tile.revealed).length;
+  const safe = puzzle.tiles.length - puzzle.shape.mines;
+  const waiting = opened === safe && puzzle.stage === 'playing';
+  const paused = puzzle.stage === 'playing' && puzzle.clock === null;
+  let marks = 0;
   buttons.forEach((button, at) => {
     const tile = puzzle.tiles[at], publicTile = view[at], reading = publicTile.reading;
-    if (tile.revealed && tile.charge === null) opened++;
     if (tile.mark) marks++;
     const actual = revealActual && ended(puzzle) && tile.charge !== null;
     const shownMark = actual ? { basis: 0, rotation: tile.charge! } : tile.mark;
@@ -213,6 +216,8 @@ function render(): void {
     const classes = ['tile', tile.revealed || actual ? 'uncovered' : 'covered'];
     if (shownMark && !actual && !wasHit) classes.push('marked');
     if (reading && reading.kind !== 'empty' && assessments[at].satisfied && preferences.hints) classes.push('satisfied');
+    const unmet = waiting && !paused && preferences.hints && !!reading && !assessments[at].satisfied;
+    if (unmet) { classes.push('unmet-clue'); description += '，线索未满足'; }
     if (highlighted.has(at)) classes.push('candidate');
     if (preferences.grouping && tile.mark && (tile.mark.basis === selected || tile.mark.basis === pointedBasis) && !actual) classes.push('related');
     if (merging && tile.mark && tile.mark.basis !== selected) classes.push('merge-target');
@@ -238,9 +243,6 @@ function render(): void {
     const available = button.clientWidth - 2, width = content.getBoundingClientRect().width;
     if (width > available) content.style.fontSize = `${Math.max(10, parseFloat(getComputedStyle(content).fontSize) * available / width)}px`;
   }
-  const safe = puzzle.tiles.length - puzzle.shape.mines;
-  const waiting = opened === safe && puzzle.stage === 'playing';
-  const paused = puzzle.stage === 'playing' && puzzle.clock === null;
   el('state').textContent = paused ? '已暂停' : waiting ? '待满足线索' : { ready: '准备就绪', playing: '进行中', won: '全部解开', lost: '本局结束' }[puzzle.stage];
   el('state').dataset.stage = puzzle.stage;
   el('expansion-label').textContent = touchUI ? '长按展开' : '点击展开';
